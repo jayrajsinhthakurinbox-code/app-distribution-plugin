@@ -1,6 +1,7 @@
 package io.github.jayrajsinh.appdistribution
 
 import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import org.jetbrains.plugins.gradle.service.GradleInstallationManager
 import org.jetbrains.plugins.gradle.settings.GradleSettings
@@ -23,7 +24,10 @@ object GradleJdk {
                 ?: project.basePath
                 ?: return@nonBlocking null
 
-            GradleInstallationManager.getInstance()
+            // Looked up as a service, not GradleInstallationManager.getInstance():
+            // the class became Kotlin in 2025.x, so getInstance() compiles to a
+            // Companion access that doesn't exist in 2024.3
+            service<GradleInstallationManager>()
                 .getGradleJvmPath(project, linkedProjectPath)
                 ?.takeIf { File(it, "bin/java").exists() }
         }.executeSynchronously()

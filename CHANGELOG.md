@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.0.1]
+
+### Fixed
+
+- Compatibility with Android Studio / IntelliJ IDEA 2024.3: resolving the project's Gradle JDK no longer relies on an API that only exists in 2025.1+.
+
 ## [1.0.0]
 
 ### Added
