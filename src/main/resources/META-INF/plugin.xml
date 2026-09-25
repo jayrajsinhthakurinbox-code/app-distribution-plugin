@@ -1,0 +1,54 @@
+<idea-plugin>
+
+    <id>io.github.jayrajsinhthakurinbox-code.appdistribution</id>
+
+    <name>App Distribution for Firebase</name>
+
+    <vendor>Jayrajsinh Thakur</vendor>
+
+    <description><![CDATA[
+    Build a signed release APK and send it to your testers with
+    <a href="https://firebase.google.com/docs/app-distribution">Firebase App Distribution</a>,
+    without leaving Android Studio.
+
+    <h3>Features</h3>
+    <ul>
+        <li><b>One-click release build</b> of your app module, using the same Gradle JDK as the IDE.
+            Works with product flavors, custom APK names and projects that sign through
+            <i>Generate Signed App Bundle / APK</i> (your keystore is remembered securely).</li>
+        <li><b>Distribute to testers</b> with release notes. Recent testers are remembered per project.</li>
+        <li><b>Live progress</b> with cancel, and a link to the release in the Firebase console.</li>
+        <li><b>Firebase CLI handled for you</b>: uses your installed <code>firebase</code>,
+            or downloads the standalone CLI (no Node.js needed). Sign in from the tool window.</li>
+        <li><b>Optional Slack announcements</b> through an Incoming Webhook, with nicely formatted release notes.</li>
+    </ul>
+
+    <h3>Getting started</h3>
+    <ol>
+        <li>Open the <b>App Distribution</b> tool window (right side).</li>
+        <li>Install / sign in to Firebase CLI when prompted.</li>
+        <li>Click <b>Build Release APK</b>, add testers and notes, then <b>Distribute</b>.</li>
+    </ol>
+    <p>Your app needs a <code>google-services.json</code> for a Firebase project with App Distribution enabled.</p>
+
+    <p><i>Not affiliated with or endorsed by Google. Firebase is a trademark of Google LLC.</i></p>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.gradle</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow
+                id="App Distribution"
+                anchor="right"
+                factoryClass="io.github.jayrajsinh.appdistribution.AppDistributionToolWindowFactory"
+                icon="io.github.jayrajsinh.appdistribution.AppDistributionIcons.ToolWindow"/>
+
+        <applicationConfigurable
+                parentId="tools"
+                id="io.github.jayrajsinh.appdistribution.settings"
+                displayName="App Distribution for Firebase"
+                instance="io.github.jayrajsinh.appdistribution.AppDistributionConfigurable"/>
+    </extensions>
+
+</idea-plugin>
