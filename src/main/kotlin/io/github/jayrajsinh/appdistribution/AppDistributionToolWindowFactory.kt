@@ -27,6 +27,7 @@ import com.intellij.ui.JBColor
 import com.intellij.ui.components.ActionLink
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
+import com.intellij.ui.components.JBRadioButton
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextArea
 import com.intellij.ui.components.JBTextField
@@ -49,6 +50,7 @@ import java.awt.Rectangle
 import java.awt.datatransfer.StringSelection
 import java.io.File
 import javax.swing.BoxLayout
+import javax.swing.ButtonGroup
 import javax.swing.Icon
 import javax.swing.JButton
 import javax.swing.JComponent
@@ -92,6 +94,15 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
         private var buildButton: JButton? = null
         private var buildCancelButton: JButton? = null
         private var buildTask: DistributionCli.Task? = null
+        private var buildTypeRadios: List<JBRadioButton> = emptyList()
+
+        /** Release or debug, remembered per project. */
+        private var buildTypeDebug: Boolean
+            get() = properties.getBoolean(BUILD_TYPE_DEBUG_KEY, false)
+            set(value) = properties.setValue(BUILD_TYPE_DEBUG_KEY, value, false)
+
+        private fun buildButtonText() =
+            if (buildTypeDebug) "Build Debug APK" else "Build Release APK"
         private var buildProgress: JProgressBar? = null
         private var buildStatus: JBLabel? = null
         private var buildAnimator: ProgressAnimator? = null
@@ -142,10 +153,42 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
             }
 
             val button = primaryButton(
-                "Build Release APK"
+                buildButtonText()
             ) {
                 buildRelease()
             }
+
+            val releaseRadio = JBRadioButton("Release", !buildTypeDebug)
+            val debugRadio = JBRadioButton("Debug", buildTypeDebug)
+
+            ButtonGroup().apply {
+                add(releaseRadio)
+                add(debugRadio)
+            }
+
+            buildTypeRadios = listOf(releaseRadio, debugRadio)
+
+            val buildTypeHint = JBLabel().apply {
+                foreground = UIUtil.getContextHelpForeground()
+                font = JBUI.Fonts.smallFont()
+            }
+
+            val applyBuildType = {
+                buildTypeDebug = debugRadio.isSelected
+                button.text = buildButtonText()
+
+                // Debug builds are signed with the debug key; no keystore needed
+                signingRow.isVisible = !buildTypeDebug
+
+                buildTypeHint.text = if (buildTypeDebug) {
+                    "Signed with the debug key. Quick to build, debuggable, no keystore needed."
+                } else {
+                    "Signed with your release key, the same build your users get."
+                }
+            }
+
+            releaseRadio.addActionListener { applyBuildType() }
+            debugRadio.addActionListener { applyBuildType() }
 
             val cancelButton = JButton("Cancel").apply {
                 isVisible = false
@@ -188,9 +231,17 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                 group("Build") {
                     row {
                         text(
-                            "Builds a signed release APK of " +
-                                "<b>${StringUtil.escapeXmlEntities(projectName)}</b>."
+                            "Builds an APK of " +
+                                "<b>${StringUtil.escapeXmlEntities(projectName)}</b> " +
+                                "to send to your testers."
                         )
+                    }
+                    row("Build type:") {
+                        cell(releaseRadio)
+                        cell(debugRadio)
+                    }
+                    row {
+                        cell(buildTypeHint)
                     }
                     row {
                         cell(signingRow)
@@ -213,7 +264,8 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                             icon(AllIcons.Actions.Redo)
                             link(
                                 "Distribute last build: " +
-                                    "${lastBuild.versionName} (${lastBuild.versionCode})"
+                                    "${lastBuild.versionName} (${lastBuild.versionCode})" +
+                                    if (lastBuild.isDebug) " · Debug" else ""
                             ) {
                                 showDistributeStep(lastBuild)
                             }
@@ -237,6 +289,7 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
             )
 
             renderSigningRow()
+            applyBuildType()
 
             revalidate()
             repaint()
@@ -335,7 +388,7 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Newest release APK in the usual places (pre-selected in the file
+         * Newest release or debug APK in the usual places (pre-selected in the file
          * chooser), or the folder it would be in.
          */
         private fun newestReleaseApk(): VirtualFile? {
@@ -354,7 +407,11 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                 .flatMap { dir ->
                     dir.walkTopDown()
                         .filter { it.isFile && it.extension == "apk" }
-                        .filter { it.parentFile.name.endsWith("release", ignoreCase = true) }
+                        .filter {
+                            val folder = it.parentFile.name
+                            folder.endsWith("release", ignoreCase = true) ||
+                                folder.endsWith("debug", ignoreCase = true)
+                        }
                         .toList()
                 }
                 .maxByOrNull { it.lastModified() }
@@ -381,9 +438,12 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                 return
             }
 
+            val debug = apk == null && buildTypeDebug
+
             // A keystore is configured but its passwords can't be read:
-            // ask now rather than building an unsigned APK
-            val signing = signingOverride ?: if (apk == null && ReleaseSigning.savedSummary(project) != null) {
+            // ask now rather than building an unsigned APK. Debug builds
+            // use the debug key and never need it.
+            val signing = signingOverride ?: if (apk == null && !debug && ReleaseSigning.savedSummary(project) != null) {
                 ProgressManager.getInstance()
                     .runProcessWithProgressSynchronously<ReleaseSigning?, Exception>(
                         { ReleaseSigning.load(project) },
@@ -419,7 +479,10 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
             )
 
             val args = listOf("release") +
-                (apk?.let { listOf("--apk", it) } ?: emptyList())
+                (apk?.let { listOf("--apk", it) } ?: emptyList()) +
+                (if (debug) listOf("--build-type", "debug") else emptyList())
+
+            buildTypeRadios.forEach { it.isEnabled = false }
 
             val worker = object : SwingWorker<DistributionCli.Result, String>() {
 
@@ -569,7 +632,8 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
 
         private fun resetBuildButton() {
             buildButton?.isEnabled = true
-            buildButton?.text = "Build Release APK"
+            buildButton?.text = buildButtonText()
+            buildTypeRadios.forEach { it.isEnabled = true }
             buildCancelButton?.isVisible = false
         }
 
@@ -969,6 +1033,7 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
             val apk = File(manifest.apkPath)
 
             val details = buildList {
+                if (manifest.isDebug) add("Debug build")
                 add(apk.name)
                 if (apk.exists()) {
                     add(StringUtil.formatFileSize(apk.length()))
@@ -1154,6 +1219,7 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                     text(
                         "<b>${StringUtil.escapeXmlEntities(manifest.displayName)} " +
                             "${manifest.versionName} (${manifest.versionCode})</b> " +
+                            (if (manifest.isDebug) "(debug build) " else "") +
                             "was uploaded to Firebase App Distribution and sent to $who. " +
                             "They'll get an email with a link to install it."
                     )
@@ -1653,7 +1719,8 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                     applicationId = json["applicationId"].asString,
                     versionName = json["versionName"].asString,
                     versionCode = json["versionCode"].asInt,
-                    appName = json["appName"]?.asString.orEmpty()
+                    appName = json["appName"]?.asString.orEmpty(),
+                    buildType = json["buildType"]?.asString ?: "release"
                 )
             } catch (e: Exception) {
                 null
@@ -1685,10 +1752,15 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
         val versionName: String,
         val versionCode: Int,
         /** App label from the APK; empty if unknown. */
-        val appName: String = ""
+        val appName: String = "",
+        /** "release" or "debug" */
+        val buildType: String = "release"
     ) {
         val displayName: String
             get() = appName.ifEmpty { applicationId }
+
+        val isDebug: Boolean
+            get() = buildType == "debug"
     }
 
     private companion object {
@@ -1702,6 +1774,7 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
         const val MAX_RELEASE_NOTES = 4_000
 
         const val LAST_MANIFEST_KEY = "appdist.lastManifest"
+        const val BUILD_TYPE_DEBUG_KEY = "appdist.buildTypeDebug"
         const val LAST_TESTERS_KEY = "appdist.lastTesters"
         const val RECENT_TESTERS_KEY = "appdist.recentTesters"
         const val MAX_RECENT_TESTERS = 30

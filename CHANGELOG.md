@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [1.1.0]
+
+### Added
+
+- Choose between a Release and a Debug build. Debug builds are signed with the debug key, so no keystore is needed, and they're marked as debug builds in the tool window and in Slack.
+- "Choose an APK file…" also finds debug APKs, and the build type is read from the APK itself.
+
 ## [1.0.1]
 
 ### Fixed
