@@ -19,9 +19,11 @@ clicks.
 
 The tool window walks you through three steps.
 
-**1. Build.** One click builds a release APK of your app module, with the
-same Gradle JDK Android Studio uses for the project. You can also skip the
-build and send the last one, or any APK file you already have.
+**1. Build.** Pick **Release** or **Debug**, and one click builds that APK of
+your app module, with the same Gradle JDK Android Studio uses for the
+project. Debug builds use the debug key, so they're quick and need no
+keystore. You can also skip the build and send the last one, or any APK file
+you already have.
 
 **2. Distribute.** Add testers and write release notes. The testers you used
 last time are filled in for you, and recent ones are a click away. You'll
