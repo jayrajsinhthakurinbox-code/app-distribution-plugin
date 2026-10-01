@@ -86,7 +86,8 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
     /**
      * Three steps: Build → Distribute → Done.
      */
-    private class ReleasePanel(
+    // internal for ToolWindowTest
+    internal class ReleasePanel(
         private val project: Project
     ) : JBPanel<ReleasePanel>() {
 
@@ -168,6 +169,14 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
 
             buildTypeRadios = listOf(releaseRadio, debugRadio)
 
+            // Wrapped in a plain panel: the UI DSL only accepts radio buttons
+            // inside its own buttonsGroup, and these manage their own group
+            val buildTypeChoice = JPanel(FlowLayout(FlowLayout.LEFT, JBUI.scale(12), 0)).apply {
+                isOpaque = false
+                add(releaseRadio)
+                add(debugRadio)
+            }
+
             val buildTypeHint = JBLabel().apply {
                 foreground = UIUtil.getContextHelpForeground()
                 font = JBUI.Fonts.smallFont()
@@ -237,8 +246,7 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                         )
                     }
                     row("Build type:") {
-                        cell(releaseRadio)
-                        cell(debugRadio)
+                        cell(buildTypeChoice)
                     }
                     row {
                         cell(buildTypeHint)

@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.1.1]
+
+### Fixed
+
+- The tool window failed to open in 1.1.0 ("Nothing to show") because of how the Release / Debug choice was laid out.
+
 ## [1.1.0]
 
 ### Added
