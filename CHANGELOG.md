@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [1.1.2]
+
+### Fixed
+
+- In the Release Signing dialog, the Save button stayed disabled after an error (such as a keystore path with a stray space), so the dialog had to be closed and reopened. Errors now clear as soon as you edit a field, and Save stays available.
+- Keystore paths are cleaned up before use: surrounding spaces and quotes are removed and `~` is expanded. Paths with spaces inside them still work.
+
 ## [1.1.1]
 
 ### Fixed

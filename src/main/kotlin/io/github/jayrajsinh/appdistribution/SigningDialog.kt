@@ -6,6 +6,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.ui.ValidationInfo
+import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.components.JBPasswordField
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.AlignX
@@ -13,6 +14,7 @@ import com.intellij.ui.dsl.builder.panel
 import java.io.File
 import java.util.concurrent.TimeUnit
 import javax.swing.JComponent
+import javax.swing.event.DocumentEvent
 
 /**
  * Asks for the release keystore, like Android Studio's "Generate Signed
@@ -44,6 +46,15 @@ class SigningDialog(
         title = "Release Signing"
         setOKButtonText("Save and Build")
         init()
+
+        // Clear a previous error as soon as anything is edited
+        val clearError = object : DocumentAdapter() {
+            override fun textChanged(e: DocumentEvent) = setErrorText(null)
+        }
+        storeFile.textField.document.addDocumentListener(clearError)
+        storePassword.document.addDocumentListener(clearError)
+        keyAlias.document.addDocumentListener(clearError)
+        keyPassword.document.addDocumentListener(clearError)
     }
 
     override fun createCenterPanel(): JComponent = panel {
@@ -75,21 +86,23 @@ class SigningDialog(
     override fun getPreferredFocusedComponent(): JComponent =
         if (storeFile.text.isBlank()) storeFile.textField else storePassword
 
+    // Errors keep Save enabled (withOKEnabled): this dialog only validates
+    // when Save is clicked, so a disabled Save could never be re-enabled.
     override fun doValidate(): ValidationInfo? = when {
-        !File(storeFile.text).isFile ->
-            ValidationInfo("Keystore file not found", storeFile)
+        !File(normalizePath(storeFile.text)).isFile ->
+            ValidationInfo("Keystore file not found", storeFile).withOKEnabled()
         storePassword.password.isEmpty() ->
-            ValidationInfo("Enter the keystore password", storePassword)
+            ValidationInfo("Enter the keystore password", storePassword).withOKEnabled()
         keyAlias.text.isBlank() ->
-            ValidationInfo("Enter the key alias", keyAlias)
+            ValidationInfo("Enter the key alias", keyAlias).withOKEnabled()
         keyPassword.password.isEmpty() ->
-            ValidationInfo("Enter the key password", keyPassword)
+            ValidationInfo("Enter the key password", keyPassword).withOKEnabled()
         else -> null
     }
 
     override fun doOKAction() {
         val signing = ReleaseSigning(
-            storeFile = storeFile.text.trim(),
+            storeFile = normalizePath(storeFile.text),
             storePassword = String(storePassword.password),
             keyAlias = keyAlias.text.trim(),
             keyPassword = String(keyPassword.password)
@@ -104,7 +117,7 @@ class SigningDialog(
             )
 
         if (error != null) {
-            setErrorText(error, storePassword)
+            setErrorInfoAll(listOf(ValidationInfo(error, storePassword).withOKEnabled()))
             return
         }
 
@@ -156,6 +169,27 @@ class SigningDialog(
             }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    companion object {
+
+        /**
+         * Cleans up a pasted keystore path: surrounding whitespace and quotes,
+         * and a leading ~ for the home folder. Spaces inside the path are kept.
+         */
+        internal fun normalizePath(raw: String): String {
+            var path = raw.trim()
+
+            if (path.length >= 2 && path.first() == path.last() && path.first() in "\"'") {
+                path = path.substring(1, path.length - 1).trim()
+            }
+
+            if (path == "~" || path.startsWith("~/")) {
+                path = System.getProperty("user.home") + path.substring(1)
+            }
+
+            return path
         }
     }
 }
