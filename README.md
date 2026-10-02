@@ -1,5 +1,9 @@
 # App Distribution for Firebase
 
+[![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/34549?label=JetBrains%20Marketplace)](https://plugins.jetbrains.com/plugin/34549-app-distribution-for-firebase)
+[![Downloads](https://img.shields.io/jetbrains/plugin/d/34549)](https://plugins.jetbrains.com/plugin/34549-app-distribution-for-firebase)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 Send a test build to your testers without leaving Android Studio.
 
 The plugin builds your app (release or debug), uploads it to
@@ -62,7 +66,8 @@ Things it handles so you don't have to:
 
 **From the Marketplace:** in Android Studio, open
 **Settings › Plugins › Marketplace**, search for
-*App Distribution for Firebase*, and click **Install**.
+*App Distribution for Firebase*, and click **Install**. Or open the
+[plugin page](https://plugins.jetbrains.com/plugin/34549-app-distribution-for-firebase) and click **Install to IDE**.
 
 **From a zip:** if you have the plugin zip (from [Releases](../../releases),
 or [built yourself](#building-from-source)), use
