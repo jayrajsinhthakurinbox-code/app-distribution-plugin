@@ -5,11 +5,11 @@ import com.intellij.icons.AllIcons
 import com.intellij.ide.BrowserUtil
 import com.intellij.ide.util.PropertiesComponent
 import com.intellij.ide.ui.laf.darcula.ui.DarculaButtonUI
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.progress.ProgressManager
-import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.popup.JBPopupFactory
@@ -25,6 +25,7 @@ import com.intellij.ui.AnimatedIcon
 import com.intellij.ui.InplaceButton
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.ActionLink
+import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBRadioButton
@@ -101,6 +102,33 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
         private var buildTypeDebug: Boolean
             get() = properties.getBoolean(BUILD_TYPE_DEBUG_KEY, false)
             set(value) = properties.setValue(BUILD_TYPE_DEBUG_KEY, value, false)
+
+        /** Whether to post distributions to Slack, remembered per project. */
+        private var postToSlack: Boolean
+            get() = properties.getBoolean(POST_TO_SLACK_KEY, true)
+            set(value) = properties.setValue(POST_TO_SLACK_KEY, value, true)
+
+        /**
+         * Opens the Connect Slack dialog. Returns true if a webhook was saved,
+         * in which case posting is switched on for this project.
+         */
+        private fun connectSlack(): Boolean {
+            val saved = SlackWebhookDialog(project, null).showAndGet()
+            if (saved) postToSlack = true
+            return saved
+        }
+
+        private fun renderSlack(checkbox: JBCheckBox, link: ActionLink) {
+            val hasWebhook = AppDistributionSettings.getInstance().hasSlackWebhook
+
+            checkbox.isSelected = hasWebhook && postToSlack
+            checkbox.toolTipText = if (hasWebhook) {
+                "Post this build to your Slack channel when it's sent to testers"
+            } else {
+                "Connect a Slack webhook first"
+            }
+            link.text = if (hasWebhook) "Change webhook…" else "Set up Slack…"
+        }
 
         private fun buildButtonText() =
             if (buildTypeDebug) "Build Debug APK" else "Build Release APK"
@@ -862,6 +890,38 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
             var uploading = false
             var uploadTask: DistributionCli.Task? = null
 
+            val settings = AppDistributionSettings.getInstance()
+
+            val slackCheckbox = JBCheckBox("Post this build to Slack")
+
+            val slackLink = ActionLink("") {
+                connectSlack()
+                renderSlack(slackCheckbox, it.source as ActionLink)
+            }
+
+            // Without a webhook the box can't be ticked: clicking it opens the
+            // Connect Slack dialog instead
+            slackCheckbox.addActionListener {
+                if (settings.hasSlackWebhook) {
+                    postToSlack = slackCheckbox.isSelected
+                } else {
+                    slackCheckbox.isSelected = false
+                    connectSlack()
+                    renderSlack(slackCheckbox, slackLink)
+                }
+            }
+
+            renderSlack(slackCheckbox, slackLink)
+
+            // Webhooks saved by older versions aren't flagged yet; check once
+            if (!settings.hasSlackWebhook) {
+                ApplicationManager.getApplication().executeOnPooledThread {
+                    if (settings.refreshSlackWebhookSaved()) {
+                        SwingUtilities.invokeLater { renderSlack(slackCheckbox, slackLink) }
+                    }
+                }
+            }
+
             val cancelUploadButton = JButton("Cancel").apply {
                 isVisible = false
                 addActionListener {
@@ -917,6 +977,8 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                 uploading = true
                 distributeButton.isEnabled = false
                 distributeButton.text = "Distributing…"
+                slackCheckbox.isEnabled = false
+                slackLink.isEnabled = false
 
                 val task = DistributionCli.Task()
                 uploadTask = task
@@ -936,12 +998,15 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                     testers = testers.toList(),
                     releaseNotes = notes.text.trim(),
                     task = task,
+                    postToSlack = slackCheckbox.isSelected,
                     onProgress = { percent, message ->
                         uploadAnimator.update(percent, message)
                     },
                     onStatus = { uploadStatus.text = it },
                     onFinished = {
                         uploading = false
+                        slackCheckbox.isEnabled = true
+                        slackLink.isEnabled = true
                         cancelUploadButton.isVisible = false
                         uploadAnimator.stop()
                         uploadProgress.isVisible = false
@@ -1009,6 +1074,10 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                 }
                 row {
                     cell(uploadStatus)
+                }
+                row {
+                    cell(slackCheckbox)
+                    cell(slackLink)
                 }
                 row {
                     cell(distributeButton).align(AlignX.FILL).resizableColumn()
@@ -1095,13 +1164,14 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
             testers: List<String>,
             releaseNotes: String,
             task: DistributionCli.Task,
+            postToSlack: Boolean,
             onProgress: (Int, String) -> Unit,
             onStatus: (String) -> Unit,
             onFinished: () -> Unit
         ) {
 
             val retry = {
-                distribute(manifest, testers, releaseNotes, task, onProgress, onStatus, onFinished)
+                distribute(manifest, testers, releaseNotes, task, postToSlack, onProgress, onStatus, onFinished)
             }
 
             // Temp files handed to the CLI; removed once it exits
@@ -1132,7 +1202,7 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                 ),
                 task = task,
                 // Optional Slack webhook from Settings
-                environment = { AppDistributionSettings.getInstance().distributeEnvironment() },
+                environment = { AppDistributionSettings.getInstance().distributeEnvironment(postToSlack) },
                 onLine = { line ->
                     parseProgress(line)?.let { (percent, message) ->
                         onProgress(percent, message)
@@ -1246,9 +1316,10 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
 
                     else -> row {
                         icon(AllIcons.General.Information)
-                        link("Announce releases in Slack…") {
-                            ShowSettingsUtil.getInstance()
-                                .showSettingsDialog(project, AppDistributionConfigurable::class.java)
+                        if (AppDistributionSettings.getInstance().hasSlackWebhook) {
+                            label("Not posted to Slack")
+                        } else {
+                            link("Post builds to Slack next time…") { connectSlack() }
                         }
                     }
                 }
@@ -1782,6 +1853,7 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
         const val MAX_RELEASE_NOTES = 4_000
 
         const val LAST_MANIFEST_KEY = "appdist.lastManifest"
+        const val POST_TO_SLACK_KEY = "appdist.postToSlack"
         const val BUILD_TYPE_DEBUG_KEY = "appdist.buildTypeDebug"
         const val LAST_TESTERS_KEY = "appdist.lastTesters"
         const val RECENT_TESTERS_KEY = "appdist.recentTesters"

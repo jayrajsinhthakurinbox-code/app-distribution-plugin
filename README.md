@@ -75,29 +75,29 @@ Then open the **App Distribution** tool window on the right side of the IDE.
 
 ## Post builds to Slack
 
-The plugin can announce every build in a Slack channel through an
-[Incoming Webhook](https://api.slack.com/messaging/webhooks). It's off until
-you set it up, and it takes about two minutes.
+The plugin can post every build to a Slack channel through an
+[Incoming Webhook](https://api.slack.com/messaging/webhooks), so QA knows
+there's something new to test.
 
-**Create the webhook in Slack**
+On the Distribute step, tick **Post this build to Slack**. The first time,
+the plugin asks you to connect Slack and shows you how:
 
-1. Go to <https://api.slack.com/apps> and click **Create New App**, then
-   **From scratch**. Give it a name like "App Distribution" and pick your
-   workspace.
+1. Click **Open Slack Apps**, then **Create New App** › **From scratch**.
+   Name it (e.g. "App Distribution") and pick your workspace.
 2. Open **Incoming Webhooks** and switch it **On**.
-3. Click **Add New Webhook to Workspace**, choose the channel builds should
-   go to, and click **Allow**.
-4. Copy the webhook URL. It starts with `https://hooks.slack.com/services/`.
+3. Click **Add New Webhook to Workspace**, choose the channel, and click
+   **Allow**.
+4. Copy the webhook URL, paste it into the dialog, and click
+   **Send Test Message** to check it arrives. Then **Save**.
 
-**Add it to the plugin**
+After that the checkbox is remembered for each project, so you can leave it
+on for your main app and off for experiments. You can change or remove the
+webhook any time with **Change webhook…** next to the checkbox, or under
+**Settings › Tools › App Distribution for Firebase**.
 
-1. Open **Settings › Tools › App Distribution for Firebase**.
-2. Tick **Announce each distribution in Slack** and paste the URL.
-3. Click **Send Test Message** to check it reaches the channel.
-
-From then on, each build you distribute shows up with the app name, version,
-build number, tester count, who sent it, your release notes and an
-**Open in Firebase** button.
+Each post shows the app name, version and build number, whether it's a
+debug build, how many testers it went to, who sent it, your release notes
+and an **Open in Firebase** button.
 
 You can write release notes however you like. Headings such as
 "What's new?" or "Bug fixes:" are shown in bold, and lines become a tidy

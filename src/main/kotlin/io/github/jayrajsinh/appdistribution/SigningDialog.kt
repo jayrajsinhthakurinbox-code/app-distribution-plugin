@@ -101,6 +101,13 @@ class SigningDialog(
     }
 
     override fun doOKAction() {
+        // Validate here too: the platform doesn't always run doValidate()
+        // before Save
+        doValidate()?.let {
+            setErrorInfoAll(listOf(it))
+            return
+        }
+
         val signing = ReleaseSigning(
             storeFile = normalizePath(storeFile.text),
             storePassword = String(storePassword.password),

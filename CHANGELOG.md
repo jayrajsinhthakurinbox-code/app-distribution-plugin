@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+## [1.2.0]
+
+### Added
+
+- A **Post this build to Slack** checkbox on the Distribute step, remembered per project.
+- If no webhook is set up yet, ticking it opens a **Connect Slack** dialog with step-by-step instructions, a link to Slack, and a test message button.
+
+### Changed
+
+- The Slack settings page now shows whether a webhook is saved, with Set Up, Change and Remove. The old global "Announce each distribution" switch is replaced by the per-build checkbox.
+
+### Fixed
+
+- Dialogs now always validate on Save, so an invalid webhook URL or incomplete keystore details can't be saved.
+
 ## [1.1.2]
 
 ### Fixed
