@@ -2,11 +2,11 @@
 
 Send a test build to your testers without leaving Android Studio.
 
-The plugin builds a signed release APK, uploads it to
+The plugin builds your app (release or debug), uploads it to
 [Firebase App Distribution](https://firebase.google.com/docs/app-distribution)
-with your release notes, and emails your testers a download link. If you use
-Slack, it can post the build to a channel too, so QA knows there's
-something new to test.
+with your release notes, and Firebase emails your testers a download link.
+If you use Slack, it can post the build to a channel too, so QA knows
+there's something new to test.
 
 <img src="docs/distribute.png" alt="The App Distribution tool window, uploading a build to three testers" width="560">
 
@@ -14,6 +14,19 @@ I built it because shipping a test build meant the same chores every time:
 build the APK, open the Firebase console, upload it, type the tester emails
 again, paste the notes, then go tell the team in Slack. Now it's a couple of
 clicks.
+
+### Why not the Firebase Gradle plugin?
+
+Firebase has an official
+[App Distribution Gradle plugin](https://firebase.google.com/docs/app-distribution/android/distribute-gradle),
+and it's great for CI. But it has to be added and configured in every
+project, and it still leaves you on the command line.
+
+This plugin needs **nothing added to your project**. No Gradle changes, no
+config files, no keys checked in. If your app already has the
+`google-services.json` Firebase gave you, you're set: sign in to Firebase once
+from the tool window, and the plugin uses the access your Google account
+already has.
 
 ## What it does
 
@@ -34,6 +47,8 @@ build. You get a link straight to the release in the Firebase console.
 
 Things it handles so you don't have to:
 
+- **Release or debug.** Pick either one. Debug builds are signed with the
+  debug key, so there's no keystore to deal with.
 - **Product flavors and custom APK names.** If a build produces more than
   one APK, it asks which one to send.
 - **Projects signed with the "Generate Signed App Bundle / APK" wizard.**
@@ -57,10 +72,12 @@ Then open the **App Distribution** tool window on the right side of the IDE.
 
 ### You'll need
 
-- Android Studio Meerkat (2024.3) or newer
+- Android Studio Meerkat (2024.3) or newer, on **macOS** (see
+  [Platform support](#platform-support))
 - A Firebase project with your Android app added, and its
   `google-services.json` in your app module (or in `src/<variant>/`)
-- Release signing, either set up in Gradle or entered once in the plugin
+- For release builds: signing set up in Gradle, or your keystore entered once
+  in the plugin
 
 ## Your first build
 
@@ -68,7 +85,8 @@ Then open the **App Distribution** tool window on the right side of the IDE.
 2. The **Firebase Account** row tells you if anything is missing.
    Click **Install** to get the Firebase CLI, then **Sign in**. A browser
    window opens; sign in with Google and paste the code back into the IDE.
-3. Click **Build Release APK**.
+3. Choose **Release** or **Debug**, then click **Build Release APK** (or
+   **Build Debug APK**).
 4. Add tester emails. You can paste several at once, separated by commas.
 5. Write what changed and what testers should look at, then click
    **Distribute**.
@@ -107,6 +125,21 @@ are cleaned up, so notes look the same no matter who wrote them.
 A webhook URL lets anyone who has it post to that channel, so the plugin
 stores it in the IDE's password store and never writes it to a file.
 
+## What leaves your machine
+
+- **To Firebase**, through the official Firebase CLI and your own Google
+  sign-in: the APK, your release notes and the tester emails. The same
+  things you'd upload in the Firebase console.
+- **To Slack**, only if you tick *Post this build to Slack*: the app name,
+  version, build number, tester count, your name from `git config`, the
+  release notes and a link to the release.
+- **Nothing else.** The plugin has no analytics and no server of its own.
+  Your keystore passwords and Slack webhook stay in the IDE's password store
+  on your machine.
+
+The plugin doesn't change your project. Details of the last build go into
+your app module's `build/` folder, which is already ignored by git.
+
 ## Troubleshooting
 
 | You see | What to do |
@@ -116,10 +149,36 @@ stores it in the IDE's password store and never writes it to a file.
 | *The release APK is unsigned* | Your project signs builds with the wizard. Enter the keystore when the plugin asks, or add a `signingConfig` to your release build. |
 | *No Firebase Android app with package …* | Add the app in the Firebase console and download a fresh `google-services.json`. |
 | Upload fails with a permission error | Your Google account needs access to that Firebase project (Project settings › Users and permissions). |
+| *No Firebase Android app with package `….debug`* | Your debug build adds an `applicationIdSuffix`. Add that package as its own app in Firebase, or distribute a release build. |
 | Slack test fails | Check that the URL starts with `https://hooks.slack.com/`. If the webhook was removed in Slack, create a new one. |
 
 If you run into something else, please
 [open an issue](../../issues) and include the error message.
+
+## FAQ
+
+**Can it upload App Bundles (`.aab`) or publish to Google Play?**
+Not yet. It uploads APKs to Firebase App Distribution. Play internal
+testing is an idea for later.
+
+**Can I use it on CI?**
+Use the [`appdist` CLI](https://github.com/jayrajsinhthakurinbox-code/app-distribution-cli)
+directly, or Firebase's own Gradle plugin, which is built for CI.
+
+**Who receives the build?**
+Whoever you add as testers. Firebase emails them an invite the first time
+and a download link for each build. They can also install from the App
+Tester app.
+
+**Does it work with product flavors?**
+Yes. If a build produces several APKs, the plugin asks which one to send.
+
+## Platform support
+
+The plugin is developed and tested on **macOS**. Linux will likely work if
+you already have the `firebase` CLI installed, but it isn't tested yet.
+Windows isn't supported yet: the build step runs `./gradlew`, and the
+automatic Firebase CLI download is the macOS version. Pull requests welcome.
 
 ## How it works
 
