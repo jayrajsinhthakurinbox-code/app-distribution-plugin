@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+## [1.2.1]
+
+### Added
+
+- Shift+Return in the release notes box starts a new bullet point, continues numbered lists, and ends the list on an empty bullet.
+
+### Changed
+
+- Slack posts recognise section titles such as "Known issues" or "My App: v1.0 (build 1)" as headings when a list follows them.
+
 ## [1.2.0]
 
 ### Added

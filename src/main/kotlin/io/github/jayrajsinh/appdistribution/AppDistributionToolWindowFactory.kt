@@ -863,6 +863,9 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                 border = JBUI.Borders.empty(6)
             }
 
+            // Shift+Return continues a bullet / numbered list
+            NotesEditing.install(notes)
+
             val notesCounter = JBLabel().apply {
                 font = JBUI.Fonts.smallFont()
                 horizontalAlignment = SwingConstants.RIGHT
@@ -1060,6 +1063,7 @@ class AppDistributionToolWindowFactory : ToolWindowFactory {
                         ).align(Align.FILL)
                     }.resizableRow()
                     row {
+                        comment("Shift+Return adds a bullet point")
                         cell(notesCounter).align(AlignX.RIGHT)
                     }
                 }.resizableRow()

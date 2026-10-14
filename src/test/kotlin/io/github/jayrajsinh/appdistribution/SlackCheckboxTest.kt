@@ -24,9 +24,12 @@ class SlackCheckboxTest : BasePlatformTestCase() {
         }
     }
 
+    private var lastPanel: javax.swing.JComponent? = null
+
     /** Opens the Distribute step and returns its Slack checkbox and link. */
     private fun distributeStep(): Pair<JBCheckBox, ActionLink> {
         val panel = AppDistributionToolWindowFactory.ReleasePanel(project)
+        lastPanel = panel
 
         // ReleaseManifest(projectPath, apkPath, applicationId, versionName, versionCode, appName, buildType)
         val manifestClass = Class.forName(
@@ -56,6 +59,13 @@ class SlackCheckboxTest : BasePlatformTestCase() {
 
         assertFalse(checkbox.isSelected)
         assertEquals("Set up Slack…", link.text)
+
+        // Shift+Return in the notes box continues lists
+        val notes = UIUtil.findComponentsOfType(lastPanel, javax.swing.JTextArea::class.java).single()
+        assertEquals(
+            "appdist.continueList",
+            notes.inputMap.get(javax.swing.KeyStroke.getKeyStroke("shift ENTER"))
+        )
     }
 
     fun testWithWebhookTheBoxIsOnAndRemembered() {
